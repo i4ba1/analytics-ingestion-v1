@@ -1,69 +1,293 @@
-# CodeIgniter 4 Application Starter
+# High-Throughput Analytics Ingestion System
 
-## What is CodeIgniter?
+A production-ready, high-performance analytics event ingestion system built with PHP 8.2, CodeIgniter 4, RabbitMQ, Redis, and PostgreSQL.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+## 🎯 Overview
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+This system is designed to handle **10,000+ events per second** with sub-100ms response times, providing real-time event collection, processing, and metrics aggregation.
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+### Architecture
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+```
+                    ┌─────────────┐
+                    │   Client    │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  API Gateway│
+                    │  (CodeIgniter)│
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  RabbitMQ   │
+                    │  (Events)   │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Workers   │
+                    │  (PHP CLI)  │
+                    └──────┬──────┘
+                           │
+                    ┌──────┴──────┐
+                    ▼             ▼
+              ┌─────────┐   ┌─────────┐
+              │  Redis  │   │PostgreSQL│
+              │ (Cache) │   │ (Store)  │
+              └─────────┘   └──────────┘
+```
 
-## Installation & updates
+## 🚀 Quick Start
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+### Prerequisites
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+- Docker & Docker Compose
+- PHP 8.2+ (for local development)
+- Composer
 
-## Setup
+### Using Docker (Recommended)
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+```bash
+# Clone and navigate to project
+cd analytics-ingestion-v1
 
-## Important Change with index.php
+# Build and start all services
+docker-compose up -d
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+# Initialize RabbitMQ queues
+docker-compose exec rabbitmq /setup-queues.sh
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+# Run database migrations
+docker-compose exec api php spark migrate
 
-**Please** read the user guide for a better explanation of how CI4 works!
+# Check service health
+curl http://localhost:8080/v1/health
+```
 
-## Repository Management
+### Manual Installation
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+```bash
+# Install dependencies
+composer install
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+# Copy environment configuration
+cp env .env
 
-## Server Requirements
+# Update .env with your settings
 
-PHP version 8.2 or higher is required, with the following extensions installed:
+# Run migrations
+php spark migrate
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
+# Start worker
+php worker.php
+```
 
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
+## 📡 API Endpoints
 
-Additionally, make sure that the following extensions are enabled in your PHP:
+### Event Ingestion
 
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+```bash
+POST /v1/events
+Content-Type: application/json
+X-API-Key: your-api-key
+
+{
+  "events": [
+    {
+      "event_id": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "page_view",
+      "timestamp": 1639567200,
+      "user_id": "user_123",
+      "session_id": "session_abc",
+      "properties": {
+        "url": "/products/123",
+        "referrer": "https://google.com",
+        "user_agent": "Mozilla/5.0..."
+      }
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "status": "accepted",
+  "accepted": 1,
+  "rejected": 0,
+  "correlation_id": "...",
+  "processing_time_ms": 45
+}
+```
+
+### Metrics Queries
+
+```bash
+# Get top pages (last hour)
+GET /v1/metrics/top-pages?window=1h&limit=20
+
+# Get top users (last 24 hours)
+GET /v1/metrics/top-users?window=24h&limit=20
+
+# Get event counts (date range)
+GET /v1/metrics/count?type=page_view&from=2024-01-01&to=2024-01-31
+
+# Daily statistics
+GET /v1/metrics/daily-stats?date=2024-01-15
+```
+
+### Health & Monitoring
+
+```bash
+# Health check
+GET /v1/health
+
+# Detailed health
+GET /v1/health/detailed
+
+# Prometheus metrics
+GET /v1/metrics
+```
+
+## 🗄️ Database Schema
+
+### Metrics Tables
+
+- `metrics_event_type_daily` - Daily event counts by type
+- `metrics_page_daily` - Daily page view counts
+- `metrics_user_daily` - Daily user activity
+- `dead_letter_queue` - Failed event tracking
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```bash
+# Application
+ENVIRONMENT=production
+app.baseURL=http://localhost:8080
+
+# Database
+database.default.DNSv4=pgsql:host=postgres;dbname=analytics
+database.default.username=analytics
+database.default.password=analytics_password
+
+# Redis
+redis.host=redis
+redis.port=6379
+
+# RabbitMQ
+rabbitmq.host=rabbitmq
+rabbitmq.port=5672
+rabbitmq.user=analytics
+rabbitmq.password=analytics_password
+rabbitmq.vhost=/analytics
+
+# API
+api.key=your-secret-api-key-change-in-production
+api.rateLimit.requests=1000
+api.rateLimit.window=60
+```
+
+## 📊 Monitoring
+
+### Access Monitoring Services
+
+- **Grafana**: http://localhost:3001 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **RabbitMQ Management**: http://localhost:15672 (analytics/analytics_password)
+
+### Key Metrics
+
+- Request rate & latency
+- Queue depth
+- Worker processing rate
+- API error rates
+- Database/Redis connection health
+
+## 🧪 Testing
+
+### Load Testing with k6
+
+```bash
+k6 run tests/load/ingestion.js
+```
+
+### Unit Tests
+
+```bash
+phpunit tests/
+```
+
+## 🛠️ Operations
+
+### Queue Management
+
+```bash
+# Check queue depth
+docker-compose exec api php spark queue:depth analytics.events.raw
+
+# Purge queue (use with caution)
+docker-compose exec api php spark queue:purge analytics.events.raw
+```
+
+### Worker Management
+
+```bash
+# View worker logs
+docker-compose logs -f worker
+
+# Restart workers
+docker-compose restart worker
+```
+
+### Database Maintenance
+
+```bash
+# Cleanup old data (older than 90 days)
+docker-compose exec api php spark db:cleanup --days=90
+```
+
+## 📈 Performance Tuning
+
+### API Service
+
+- Increase worker processes in Supervisor
+- Enable OPcache for PHP
+- Use Redis persistent connections
+
+### Worker Service
+
+- Scale workers horizontally: `docker-compose up --scale worker=4`
+- Tune prefetch count based on message size
+- Monitor consumer lag
+
+### Database
+
+- Add indexes for common query patterns
+- Partition tables by date
+- Enable query caching
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📝 License
+
+MIT License - see LICENSE file for details
+
+## 📞 Support
+
+For issues, questions, or contributions, please open an issue on GitHub.
+
+## 🔄 Versioning
+
+This project follows Semantic Versioning (SemVer).
+
+Current version: **1.0.0**

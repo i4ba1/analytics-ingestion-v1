@@ -1,0 +1,49 @@
+FROM php:8.2-cli
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip sockets
+
+# Install Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Install AMQP extension for RabbitMQ
+RUN apt-get update && apt-get install -y librabbitmq-dev \
+    && pecl install amqp \
+    && docker-php-ext-enable amqp
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /app
+
+# Copy application files
+COPY . /app/
+
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Copy Supervisor configuration
+COPY infra/docker/worker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Create log directory
+RUN mkdir -p /var/log/supervisor
+
+# Expose port for health checks
+EXPOSE 9000
+
+# Start Supervisor
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

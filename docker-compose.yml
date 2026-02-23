@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: analytics-postgres
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: analytics
+      POSTGRES_PASSWORD: analytics_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analytics-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: analytics-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analytics-network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: analytics-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: analytics
+      RABBITMQ_DEFAULT_PASS: analytics_password
+      RABBITMQ_DEFAULT_VHOST: /analytics
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infra/docker/rabbitmq/setup-queues.sh:/setup-queues.sh
+      - ./infra/docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - analytics-network
+
+  # Analytics API Service
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: analytics-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=production
+      - database.default.DNSv4=pgsql:host=postgres;dbname=analytics
+      - database.default.username=analytics
+      - database.default.password=analytics_password
+      - redis.host=redis
+      - redis.port=6379
+      - rabbitmq.host=rabbitmq
+      - rabbitmq.port=5672
+      - rabbitmq.user=analytics
+      - rabbitmq.password=analytics_password
+      - rabbitmq.vhost=/analytics
+      - api.key=your-secret-api-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - analytics-network
+
+  # Analytics Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    container_name: analytics-worker
+    environment:
+      - ENVIRONMENT=production
+      - database.default.DNSv4=pgsql:host=postgres;dbname=analytics
+      - database.default.username=analytics
+      - database.default.password=analytics_password
+      - redis.host=redis
+      - redis.port=6379
+      - rabbitmq.host=rabbitmq
+      - rabbitmq.port=5672
+      - rabbitmq.user=analytics
+      - rabbitmq.password=analytics_password
+      - rabbitmq.vhost=/analytics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./writable/logs:/app/writable/logs
+    networks:
+      - analytics-network
+    deploy:
+      replicas: 2
+
+  # Prometheus (Monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: analytics-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - analytics-network
+
+  # Grafana (Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: analytics-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - analytics-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  analytics-network:
+    driver: bridge

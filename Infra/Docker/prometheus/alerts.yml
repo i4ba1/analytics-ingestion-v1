@@ -1,0 +1,70 @@
+groups:
+  - name: analytics_alerts
+    interval: 30s
+    rules:
+      # High queue depth alert
+      - alert: HighQueueDepth
+        expr: analytics_queue_depth > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue depth detected"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages"
+
+      # API error rate alert
+      - alert: HighAPIErrorRate
+        expr: rate(analytics_http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value }} requests/second"
+
+      # Worker processing failures
+      - alert: HighWorkerFailureRate
+        expr: rate(analytics_worker_failed[5m]) / rate(analytics_worker_processed[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High worker failure rate"
+          description: "Worker failure rate is {{ $value }}"
+
+      # Service down alerts
+      - alert: APIServiceDown
+        expr: up{job="analytics-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API service is down"
+          description: "Analytics API service has been down for more than 2 minutes"
+
+      - alert: RedisDown
+        expr: analytics_redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been unreachable for more than 2 minutes"
+
+      - alert: DatabaseDown
+        expr: analytics_database_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "Database has been unreachable for more than 2 minutes"
+
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ has been unreachable for more than 2 minutes"

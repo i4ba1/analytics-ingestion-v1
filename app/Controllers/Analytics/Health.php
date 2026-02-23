@@ -1,11 +1,11 @@
 <?php
 
-namespace Analytics\Controllers;
+namespace App\Controllers\Analytics;
 
-use Analytics\Queue\RabbitMQManager;
-use Analytics\Cache\RedisManager;
-use Analytics\Database\DatabaseManager;
-use Analytics\Logging\Logger;
+use App\Libraries\Analytics\Queue\RabbitMQManager;
+use App\Libraries\Analytics\Cache\RedisManager;
+use App\Libraries\Analytics\Database\DatabaseManager;
+use App\Libraries\Analytics\Logging\Logger;
 use Ramsey\Uuid\Uuid;
 
 /**

@@ -10,11 +10,11 @@
  * @package Analytics\Worker
  */
 
-use Analytics\Config\Config;
-use Analytics\Queue\RabbitMQManager;
-use Analytics\Database\DatabaseManager;
-use Analytics\Cache\RedisManager;
-use Analytics\Logging\Logger;
+use App\Libraries\Analytics\Config\Config;
+use App\Libraries\Analytics\Queue\RabbitMQManager;
+use App\Libraries\Analytics\Database\DatabaseManager;
+use App\Libraries\Analytics\Cache\RedisManager;
+use App\Libraries\Analytics\Logging\Logger;
 
 require_once ROOTPATH . 'vendor/autoload.php';
 
@@ -24,7 +24,7 @@ require_once ROOTPATH . 'vendor/autoload.php';
  * Consumes messages from RabbitMQ, validates events,
  * checks idempotency, and persists aggregated data.
  */
-class Worker
+namespace App\Services\Workers;`n`nclass Worker
 {
     private Config $config;
     private RabbitMQManager $rabbitmq;

@@ -1,8 +1,8 @@
 <?php
 
-namespace Analytics\Queue;
+namespace App\Libraries\Analytics\Queue;
 
-use Analytics\Config\Config;
+use App\Libraries\Analytics\Config\Config;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Message\AMQPMessage;

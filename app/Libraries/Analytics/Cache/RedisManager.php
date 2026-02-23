@@ -1,8 +1,8 @@
 <?php
 
-namespace Analytics\Cache;
+namespace App\Libraries\Analytics\Cache;
 
-use Analytics\Config\Config;
+use App\Libraries\Analytics\Config\Config;
 use Predis\Client;
 
 /**

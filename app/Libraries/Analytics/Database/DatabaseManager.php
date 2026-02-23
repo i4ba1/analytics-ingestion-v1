@@ -1,9 +1,9 @@
 <?php
 
-namespace Analytics\Database;
+namespace App\Libraries\Analytics\Database;
 
-use Analytics\Config\Config;
-use Analytics\Logging\Logger;
+use App\Libraries\Analytics\Config\Config;
+use App\Libraries\Analytics\Logging\Logger;
 
 /**
  * Database Manager

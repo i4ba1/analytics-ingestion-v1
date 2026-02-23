@@ -1,6 +1,6 @@
 <?php
 
-namespace Analytics\Logging;
+namespace App\Libraries\Analytics\Logging;
 
 /**
  * Structured JSON Logger

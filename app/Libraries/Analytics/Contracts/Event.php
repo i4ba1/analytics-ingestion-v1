@@ -1,10 +1,10 @@
 <?php
 
-namespace Analytics\Contracts;
+namespace App\Libraries\Analytics\Contracts;
 
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\InvalidUuidStringException;
-use Analytics\Config\Config;
+use App\Libraries\Analytics\Config\Config;
 
 /**
  * Event Contract & Validator

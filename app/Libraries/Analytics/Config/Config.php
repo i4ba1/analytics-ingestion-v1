@@ -1,6 +1,6 @@
 <?php
 
-namespace Analytics\Config;
+namespace App\Libraries\Analytics\Config;
 
 /**
  * Centralized Configuration Manager
